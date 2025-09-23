@@ -1,0 +1,38 @@
+name: Next.js CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Hacer Build para deploy
+        uses: actions/checkout@v4
+
+      - name: Configurar pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+          run_install: false
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "pnpm"
+
+      - name: Instalar dependencias
+        run: pnpm install --lockfile=false
+
+      - name: Build del proyecto
+        run: pnpm build
+
+      # - name: Ejecutar pruebas
+      # run: pnpm test
