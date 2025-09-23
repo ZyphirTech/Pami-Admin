@@ -15,6 +15,13 @@ import {
   CalendarClock,
   ChevronRight,
   ChevronLeft,
+  Shield,
+  Users,
+  MapPin,
+  Landmark,
+  MapPinned,
+  Home,
+  Hospital,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
@@ -35,6 +42,18 @@ const navItems: NavItem[] = [
     label: "Inicio",
     icon: LayoutDashboard,
     href: "/dashboard",
+    section: "Administración",
+  },
+  {
+    label: "Usuarios",
+    icon: Users,
+    href: "/dashboard/users",
+    section: "Administración",
+  },
+  {
+    label: "Roles",
+    icon: Shield,
+    href: "/dashboard/users",
     section: "Administración",
   },
   {
@@ -103,6 +122,48 @@ const navItems: NavItem[] = [
     icon: CalendarClock,
     href: "/dashboard/guardias",
     section: "Guardias",
+  },
+  {
+    label: "Provincias",
+    icon: Map,
+    href: "/dashboard/provincias",
+    section: "Gestion",
+  },
+  {
+    label: "Municipios",
+    icon: MapPin,
+    href: "/dashboard/municipios",
+    section: "Gestion",
+  },
+  {
+    label: "Consejos Populares",
+    icon: Landmark,
+    href: "/dashboard/consejo-popular",
+    section: "Gestion",
+  },
+  {
+    label: "Circunscripciones",
+    icon: MapPinned,
+    href: "/dashboard/circunscripcion",
+    section: "Gestion",
+  },
+  {
+    label: "CDR",
+    icon: Home,
+    href: "/dashboard/cdr",
+    section: "Gestion",
+  },
+  {
+    label: "Policlinicos",
+    icon: Hospital,
+    href: "/dashboard/policlinico",
+    section: "Gestion",
+  },
+  {
+    label: "Consultorios",
+    icon: Stethoscope,
+    href: "/dashboard/consultorio",
+    section: "Gestion",
   },
 ];
 
