@@ -13,26 +13,24 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Hacer Build para deploy
+      - name: Checkout
         uses: actions/checkout@v4
 
       - name: Configurar pnpm
         uses: pnpm/action-setup@v4
         with:
           version: 9
-          run_install: false
 
       - name: Configurar Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: "pnpm"
+          cache-dependency-path: pnpm-lock.yaml
 
       - name: Instalar dependencias
-        run: pnpm install --lockfile=false
+        run: pnpm install --frozen-lockfile
 
       - name: Build del proyecto
         run: pnpm build
 
-      # - name: Ejecutar pruebas
-      # run: pnpm test
