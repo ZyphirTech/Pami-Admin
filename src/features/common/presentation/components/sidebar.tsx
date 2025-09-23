@@ -22,6 +22,7 @@ import {
   MapPinned,
   Home,
   Hospital,
+  Map,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
