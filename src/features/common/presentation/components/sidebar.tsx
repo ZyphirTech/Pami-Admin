@@ -182,12 +182,10 @@ function Sidebar() {
       )}
     >
       <div className="flex items-center justify-between px-4 py-3 border-b">
-        {!collapsed && (
-          <div className="flex items-center gap-2">
-            <Image src="/logo.png" width={40} height={40} alt="Logo MINSAP" />
-            <span className="font-semibold text-sm">MINSAP</span>
-          </div>
-        )}
+        <div className="sticky top-0 flex items-center gap-2">
+          <Image src="/logo.png" width={40} height={40} alt="Logo MINSAP" />
+          {!collapsed && <span className="font-semibold text-sm">MINSAP</span>}
+        </div>
         <Button
           variant="ghost"
           size="icon"

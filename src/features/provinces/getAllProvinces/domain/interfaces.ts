@@ -1,4 +1,4 @@
-import { Province } from "../../common/domain/types/provinces";
+import { Province } from "../../../common/domain/types/provinces";
 
 export interface ProvincesResponse {
   items: Province[];

@@ -1,14 +1,18 @@
 "use client";
+import { Button } from "@/components/ui/button";
 import { Province } from "@/src/features/common/domain/types/provinces";
 import RootTable from "@/src/features/common/presentation/components/root-table";
 import TableMenu from "@/src/features/common/presentation/components/table-menu";
 //import { usePagination } from "@/src/features/common/presentation/hooks/usePagination";
-import { PAGE_SIZE } from "@/src/features/provinces/domain/constants";
-import { useGetProvinces } from "@/src/features/provinces/interactors/use-get-provinces";
+import { PAGE_SIZE } from "@/src/features/provinces/getAllProvinces/domain/constants";
+import { useGetProvinces } from "@/src/features/provinces/getAllProvinces/interactors/use-get-provinces";
 import { useState } from "react";
+import { Plus } from "lucide-react";
+import { AddProvince } from "./add-province-modal";
 
 function ProvincesContainer() {
   const [currentPage, setCurrentPage] = useState(1);
+  const [addProvinceModal, setAddProvinceModal] = useState(false);
 
   const {
     data: provincesResponse,
@@ -20,10 +24,20 @@ function ProvincesContainer() {
 
   const provinces = provincesResponse?.items || [];
 
+  const handleAddClick = () => {
+    setAddProvinceModal(!addProvinceModal);
+  };
+
   //const pagination = usePagination(provinces.length, PAGE_SIZE, 5, currentPage);
 
   return (
     <div className="p-6">
+      <Button
+        onClick={handleAddClick}
+        className="fixed bottom-4 right-4 h-16 w-16 rounded-full bg-blue-500 hover:bg-blue-600 flex items-center justify-center"
+      >
+        <Plus className="w-16 h-16 text-white scale-150" strokeWidth={2} />
+      </Button>
       <RootTable<Province>
         name="Provincias"
         data={provinces}
@@ -63,6 +77,10 @@ function ProvincesContainer() {
         getRowId={(row: any) => row.id}
         isLoading={isLoading}
         disableSelection
+      />
+      <AddProvince
+        isOpen={addProvinceModal}
+        onClose={() => setAddProvinceModal(false)}
       />
     </div>
   );
