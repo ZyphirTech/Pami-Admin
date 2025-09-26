@@ -6,16 +6,22 @@ export const useGetProvinces = () => {
   return useQuery({
     queryKey: ["provinces"],
     queryFn: async (): Promise<ProvincesResponse> => {
-      const provincesService = getProvincesApiService(
-        process.env.NEXT_PUBLIC_API_URL || ""
-      );
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL || "";
+      const provincesService = getProvincesApiService(baseUrl);
 
-      const result = await provincesService.getProvinces();
+      try {
+        const result = await provincesService.getProvinces();
 
-      if (result.success) {
-        return result.data;
-      } else {
-        throw new Error(result.error.message);
+        if (result.success) {
+          return result.data;
+        } else {
+          throw new Error(result.error.message);
+        }
+      } catch (err: any) {
+        console.error("Error al llamar a getProvinces:", err.message || err);
+        throw new Error(
+          "No se pudo conectar con el backend: " + (err.message || err)
+        );
       }
     },
   });
