@@ -2,7 +2,7 @@ import {
   createError,
   createSuccess,
   Result,
-} from "../../common/domain/types/result";
+} from "../../../common/domain/types/result";
 import { ProvincesError, ProvincesResponse } from "../domain/interfaces";
 import axios from "axios";
 
