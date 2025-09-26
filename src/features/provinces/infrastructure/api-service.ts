@@ -10,7 +10,9 @@ interface GetProvincesApiService {
   getProvinces: () => Promise<Result<ProvincesResponse, ProvincesError>>;
 }
 
-export const getProvincesApiService = (baseUrl: string): GetProvincesApiService => {
+export const getProvincesApiService = (
+  baseUrl: string
+): GetProvincesApiService => {
   async function getProvinces(): Promise<
     Result<ProvincesResponse, ProvincesError>
   > {

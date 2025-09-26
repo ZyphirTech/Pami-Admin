@@ -1,20 +1,26 @@
-'use client';
+"use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { usePathname, useRouter } from 'next/navigation';
-import { debounce as debounceFn } from 'lodash';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { debounce as debounceFn } from "lodash";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 type Column<T = any> = {
   header: string;
-  accessor?: string; 
-  cell?: (row: T) => React.ReactNode; 
+  accessor?: string;
+  cell?: (row: T, rowIndex: number) => React.ReactNode;
   sortable?: boolean;
   className?: string;
   width?: string | number;
@@ -24,10 +30,14 @@ type Pagination = {
   page?: number;
   pageSize?: number;
   totalRecords?: number;
-  handlePaginationModelChange?: (model: { page: number; pageSize: number }) => void;
+  handlePaginationModelChange?: (model: {
+    page: number;
+    pageSize: number;
+  }) => void;
 };
 
 type Props<T = any> = {
+  name: string;
   data: T[];
   columns: Column<T>[];
   pagination?: Pagination;
@@ -39,6 +49,7 @@ type Props<T = any> = {
   headerComponent?: React.ReactNode;
   handleSearch?: (value: string) => void;
   getRowId?: (row: T) => string | number;
+  isLoading: boolean;
 };
 
 function formatNumber(n?: number | null) {
@@ -47,6 +58,7 @@ function formatNumber(n?: number | null) {
 }
 
 export default function RootTable<T = any>({
+  name,
   data,
   columns,
   pagination,
@@ -57,24 +69,28 @@ export default function RootTable<T = any>({
   headerComponent,
   handleSearch,
   getRowId,
+  isLoading,
 }: Props<T>) {
   const router = useRouter();
   const pathname = usePathname();
 
-  const [searchValue, setSearchValue] = useState('');
+  const [searchValue, setSearchValue] = useState("");
   const [page, setPage] = useState<number>(pagination?.page ?? 0);
   const [pageSize, setPageSize] = useState<number>(pagination?.pageSize ?? 10);
   const [sortField, setSortField] = useState<string | null>(null);
-  const [sortDir, setSortDir] = useState<'asc' | 'desc' | null>(null);
+  const [sortDir, setSortDir] = useState<"asc" | "desc" | null>(null);
   const [selected, setSelected] = useState<Record<string, boolean>>({});
 
   // Helper para actualizar query string (similar a tu original)
   const updateQuery = useCallback(
-    (updates: Record<string, string | number | undefined | null>, options?: { appendSort?: string[] }) => {
-      if (typeof window === 'undefined') return;
+    (
+      updates: Record<string, string | number | undefined | null>,
+      options?: { appendSort?: string[] }
+    ) => {
+      if (typeof window === "undefined") return;
       const params = new URLSearchParams(window.location.search);
       Object.entries(updates).forEach(([key, value]) => {
-        if (value === undefined || value === null || value === '') {
+        if (value === undefined || value === null || value === "") {
           params.delete(key);
         } else {
           params.set(key, String(value));
@@ -82,8 +98,8 @@ export default function RootTable<T = any>({
       });
 
       if (options?.appendSort) {
-        params.delete('sort');
-        options.appendSort.forEach((s) => params.append('sort', s));
+        params.delete("sort");
+        options.appendSort.forEach((s) => params.append("sort", s));
       }
 
       const qs = params.toString();
@@ -144,18 +160,18 @@ export default function RootTable<T = any>({
     if (!col.sortable || !col.accessor) return;
     if (sortField !== col.accessor) {
       setSortField(col.accessor);
-      setSortDir('asc');
+      setSortDir("asc");
       updateQuery({}, { appendSort: [`${col.accessor},asc`] });
     } else {
-      if (sortDir === 'asc') {
-        setSortDir('desc');
+      if (sortDir === "asc") {
+        setSortDir("desc");
         updateQuery({}, { appendSort: [`${col.accessor},desc`] });
-      } else if (sortDir === 'desc') {
+      } else if (sortDir === "desc") {
         setSortField(null);
         setSortDir(null);
         updateQuery({}, { appendSort: [] });
       } else {
-        setSortDir('asc');
+        setSortDir("asc");
         updateQuery({}, { appendSort: [`${col.accessor},asc`] });
       }
     }
@@ -168,7 +184,9 @@ export default function RootTable<T = any>({
 
   // Selección de filas (si habilitado)
   const toggleRow = (row: T) => {
-    const id = getRowId ? String(getRowId(row)) : String((row as any).id ?? Math.random());
+    const id = getRowId
+      ? String(getRowId(row))
+      : String((row as any).id ?? Math.random());
     setSelected((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
@@ -183,28 +201,56 @@ export default function RootTable<T = any>({
   );
 
   return (
-    <div className={withoutBorder ? '' : 'shadow-md rounded-lg'}>
-      <Card className={withoutBorder ? '' : 'overflow-hidden'}>
-        {!withoutSearch && (headerComponent || (
-          <CardHeader className="flex flex-wrap items-center justify-between gap-2 py-3 px-4">
-            <div className="flex items-center gap-3">
-              {headerComponent ? headerComponent : <CardTitle className="text-sm">Tabla</CardTitle>}
-            </div>
+    <div className={withoutBorder ? "" : "shadow-md rounded-lg"}>
+      <Card className={withoutBorder ? "" : "overflow-hidden"}>
+        {!withoutSearch &&
+          (headerComponent || (
+            <CardHeader className="flex flex-wrap items-center justify-between gap-2 py-3 px-4">
+              <div className="flex items-center gap-3">
+                {headerComponent ? (
+                  headerComponent
+                ) : (
+                  <CardTitle className="text-sm">{name}</CardTitle>
+                )}
+              </div>
 
-            <div className="flex items-center gap-2 w-full sm:w-auto">
-              <Input
-                value={searchValue}
-                onChange={(e) => onSearchChange(e.target.value)}
-                placeholder="Buscar..."
-                className="max-w-xs"
-              />
-            </div>
-          </CardHeader>
-        ))}
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                <Input
+                  value={searchValue}
+                  onChange={(e) => onSearchChange(e.target.value)}
+                  placeholder="Buscar..."
+                  className="max-w-xs"
+                />
+              </div>
+            </CardHeader>
+          ))}
 
         <CardContent className="p-0">
           <ScrollArea className="w-full">
-            {data.length === 0 ? (
+            {isLoading ? (
+              <div className="flex items-center justify-center p-12">
+                <svg
+                  className="animate-spin h-8 w-8 text-muted-foreground"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  ></circle>
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8v8H4z"
+                  ></path>
+                </svg>
+              </div>
+            ) : data.length === 0 ? (
               <EmptyState />
             ) : (
               <table className="min-w-full divide-y divide-border">
@@ -213,13 +259,18 @@ export default function RootTable<T = any>({
                     {!disableSelection && (
                       <th className="px-4 py-3 w-12 text-left">
                         <Checkbox
-                          checked={Object.values(selected).length > 0 && Object.values(selected).every(Boolean)}
+                          checked={
+                            Object.values(selected).length > 0 &&
+                            Object.values(selected).every(Boolean)
+                          }
                           onCheckedChange={(v) => {
                             // seleccionar/desseleccionar visibles
                             const next: Record<string, boolean> = {};
                             if (v) {
                               data.forEach((r) => {
-                                const id = getRowId ? String(getRowId(r)) : String((r as any).id ?? Math.random());
+                                const id = getRowId
+                                  ? String(getRowId(r))
+                                  : String((r as any).id ?? Math.random());
                                 next[id] = true;
                               });
                             }
@@ -232,17 +283,25 @@ export default function RootTable<T = any>({
                     {columns.map((col, idx) => (
                       <th
                         key={idx}
-                        className={`px-4 py-3 text-left text-sm font-medium uppercase tracking-wider ${col.className ?? ''}`}
+                        className={`px-4 py-3 text-left text-sm font-medium uppercase tracking-wider ${
+                          col.className ?? ""
+                        }`}
                         style={col.width ? { width: col.width } : undefined}
                       >
                         <div
-                          className={`flex items-center gap-2 select-none ${col.sortable ? 'cursor-pointer' : ''}`}
+                          className={`flex items-center gap-2 select-none ${
+                            col.sortable ? "cursor-pointer" : ""
+                          }`}
                           onClick={() => toggleSort(col)}
                         >
                           <span>{col.header}</span>
-                          {col.sortable && col.accessor && sortField === col.accessor && (
-                            <span className="text-xs text-muted-foreground">{sortDir === 'asc' ? '▲' : '▼'}</span>
-                          )}
+                          {col.sortable &&
+                            col.accessor &&
+                            sortField === col.accessor && (
+                              <span className="text-xs text-muted-foreground">
+                                {sortDir === "asc" ? "▲" : "▼"}
+                              </span>
+                            )}
                         </div>
                       </th>
                     ))}
@@ -251,7 +310,9 @@ export default function RootTable<T = any>({
 
                 <tbody className="bg-background divide-y">
                   {data.map((row, rIndex) => {
-                    const rowId = getRowId ? String(getRowId(row)) : String((row as any).id ?? rIndex);
+                    const rowId = getRowId
+                      ? String(getRowId(row))
+                      : String((row as any).id ?? rIndex);
                     return (
                       <tr key={rowId} className="odd:bg-white even:bg-surface">
                         {!disableSelection && (
@@ -266,7 +327,11 @@ export default function RootTable<T = any>({
 
                         {columns.map((col, cIdx) => (
                           <td key={cIdx} className="px-4 py-3 align-middle">
-                            {col.cell ? col.cell(row) : (col.accessor ? (row as any)[col.accessor] : null)}
+                            {col.cell
+                              ? col.cell(row, rIndex)
+                              : col.accessor
+                              ? (row as any)[col.accessor]
+                              : null}
                           </td>
                         ))}
                       </tr>
@@ -282,8 +347,11 @@ export default function RootTable<T = any>({
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 border-t">
             <div className="flex items-center gap-2 text-sm">
               <div>
-                Mostrando <span className="font-medium">{data.length === 0 ? 0 : `${start} - ${end}`}</span> de{' '}
-                <span className="font-medium">{total}</span>
+                Mostrando{" "}
+                <span className="font-medium">
+                  {data.length === 0 ? 0 : `${start} - ${end}`}
+                </span>{" "}
+                de <span className="font-medium">{total}</span>
               </div>
             </div>
 
@@ -299,7 +367,8 @@ export default function RootTable<T = any>({
                 </Button>
 
                 <div className="px-2 text-sm">
-                  Página <span className="font-medium">{page + 1}</span> de <span className="font-medium">{totalPages}</span>
+                  Página <span className="font-medium">{page + 1}</span> de{" "}
+                  <span className="font-medium">{totalPages}</span>
                 </div>
 
                 <Button
