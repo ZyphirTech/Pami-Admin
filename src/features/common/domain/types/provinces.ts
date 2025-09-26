@@ -2,7 +2,6 @@ import { Municipio } from "./municipio";
 
 export interface Province {
   id: string;
-  name: string;
+  nombre: string;
   municipios: Municipio[];
 }
-

@@ -1,4 +1,4 @@
-import React from "react";
+"use client";
 
 function PregestantesPage() {
   return <div>PregestantesPage</div>;
