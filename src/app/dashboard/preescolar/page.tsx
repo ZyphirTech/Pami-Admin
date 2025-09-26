@@ -1,4 +1,4 @@
-import React from "react";
+"use client";
 
 function PreescolarPage() {
   return <div>PreescolarPage</div>;

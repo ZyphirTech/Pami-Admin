@@ -1,4 +1,5 @@
-import React from "react";
+"use client";
+
 
 function AdolescentesPage() {
   return <div>AdolescentesPage</div>;

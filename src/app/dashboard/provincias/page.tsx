@@ -1,60 +1,47 @@
 "use client";
 
+import { Province } from "@/src/features/common/domain/types/provinces";
 import RootTable from "@/src/features/common/presentation/components/root-table";
-
-type User = {
-  id: number;
-  name: string;
-  email: string;
-  role: string;
-};
-
-const users: User[] = [
-  { id: 1, name: "Juan Pérez", email: "juan@example.com", role: "Admin" },
-  { id: 2, name: "Ana García", email: "ana@example.com", role: "User" },
-  {
-    id: 3,
-    name: "Carlos Díaz",
-    email: "carlos@example.com",
-    role: "Supervisor",
-  },
-];
+//import { usePagination } from "@/src/features/common/presentation/hooks/usePagination";
+import { PAGE_SIZE } from "@/src/features/provinces/domain/constants";
+import { useGetProvinces } from "@/src/features/provinces/interactors/use-get-provinces";
+import { useState } from "react";
 
 export default function UsersPage() {
+  const [currentPage, setCurrentPage] = useState(1);
+
+  const {
+    data: provincesResponse,
+    isLoading,
+    error,
+    isFetching,
+    refetch,
+  } = useGetProvinces();
+
+  const provinces = provincesResponse?.items || [];
+  if (isLoading) return <div>Loading...</div>;
+
+  //const pagination = usePagination(provinces.length, PAGE_SIZE, 5, currentPage);
+
   return (
     <div className="p-6">
-      <RootTable<User>
-        data={users}
+      <RootTable<Province>
+        data={provinces}
         columns={[
           {
-            header: "Nombre",
-            accessor: "name",
+            header: "Id",
+            accessor: "id",
             sortable: true,
           },
           {
-            header: "Correo",
-            accessor: "email",
-          },
-          {
-            header: "Rol",
-            accessor: "role",
-            cell: (row: any) => (
-              <span
-                className={`px-2 py-1 rounded text-xs ${
-                  row.role === "Admin"
-                    ? "bg-red-100 text-red-600"
-                    : "bg-green-100 text-green-600"
-                }`}
-              >
-                {row.role}
-              </span>
-            ),
+            header: "Nombre",
+            accessor: "nombre",
           },
         ]}
         pagination={{
-          page: 0,
-          pageSize: 10,
-          totalRecords: 50,
+          page: currentPage,
+          pageSize: PAGE_SIZE,
+          totalRecords: provinces.length,
           handlePaginationModelChange: ({ page, pageSize }: any) => {
             console.log("Cambió la página:", page, "con pageSize:", pageSize);
             // aquí llamas a tu backend con los nuevos params

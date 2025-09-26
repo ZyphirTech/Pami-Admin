@@ -1,4 +1,4 @@
-import React from "react";
+"use client";
 
 function LactantesPage() {
   return <div>LactantesPage</div>;

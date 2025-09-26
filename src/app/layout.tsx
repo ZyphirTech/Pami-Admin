@@ -2,6 +2,9 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import DashboardLayout from "../features/common/presentation/layouts/dashboard-layout";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { queryClient } from "../features/common/infrastructure/query-client/config";
+import QueryProvider from "../features/common/presentation/components/QueryProvider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -28,7 +31,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <DashboardLayout>{children}</DashboardLayout>
+        <QueryProvider children={children} />
       </body>
     </html>
   );
