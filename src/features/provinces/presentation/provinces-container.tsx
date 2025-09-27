@@ -12,11 +12,19 @@ import { AddProvince } from "./add-province-modal";
 import { cn } from "@/lib/utils";
 import { useSidebar } from "../../common/presentation/components/sidebar";
 
+type Pagination = {
+  cursor: string | null;
+  direction: "0" | "1";
+  pageSize: number;
+};
+
 function ProvincesContainer() {
   const [currentPage, setCurrentPage] = useState(1);
   const [addProvinceModal, setAddProvinceModal] = useState(false);
-  const [pageSize, setPageSize] = useState(10);
-  let totalRecords = 11;
+  const [pageSize] = useState(10);
+  const [direction, setDirection] = useState<"0" | "1">("0");
+  const [cursor, setCursor] = useState<string | null>(null);
+  let index = 1;
 
   const {
     data: provincesResponse,
@@ -24,7 +32,11 @@ function ProvincesContainer() {
     error,
     isFetching,
     refetch,
-  } = useGetProvinces();
+  } = useGetProvinces({
+    pageSize,
+    direction,
+    cursor,
+  });
 
   const provinces = provincesResponse?.items || [];
 
@@ -37,7 +49,12 @@ function ProvincesContainer() {
   //const pagination = usePagination(provinces.length, PAGE_SIZE, 5, currentPage);
 
   return (
-    <div className={cn("p-6 transition-all duration-300", collapsed ? "ml-16" : "ml-64")}>
+    <div
+      className={cn(
+        "p-6 transition-all duration-300",
+        collapsed ? "ml-16" : "ml-64"
+      )}
+    >
       <Button
         onClick={handleAddClick}
         className="fixed bottom-4 right-4 h-16 w-16 rounded-full bg-blue-500 hover:bg-blue-600 flex items-center justify-center"
@@ -50,7 +67,7 @@ function ProvincesContainer() {
         columns={[
           {
             header: "Id",
-            cell: (_row, rowIndex) => rowIndex + 1,
+            cell: (_row, rowIndex) => (rowIndex = index++),
             sortable: true,
           },
           {
@@ -72,11 +89,20 @@ function ProvincesContainer() {
           },
         ]}
         pagination={{
-          page: currentPage,
+          direction,
+          nextCursor: provincesResponse?.nextCursor ?? null,
+          previousCursor: provincesResponse?.previousCursor ?? null,
+          hasNextPage: provincesResponse?.hasNextPage ?? false,
+          hasPreviousPage: provincesResponse?.hasPreviousPage ?? false,
           pageSize: PAGE_SIZE,
-          totalRecords: provinces.length,
-          handlePaginationModelChange: ({ page, pageSize }: any) => {
-            console.log("Cambió la página:", page, "con pageSize:", pageSize);
+          totalRecords: provincesResponse?.totalRecords,
+          handlePaginationChange: ({
+            pageSize,
+            cursor,
+            direction,
+          }: Pagination) => {
+            setDirection(direction);
+            setCursor(cursor);
           },
         }}
         getRowId={(row: any) => row.id}

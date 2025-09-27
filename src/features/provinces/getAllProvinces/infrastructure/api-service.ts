@@ -7,18 +7,31 @@ import { ProvincesError, ProvincesResponse } from "../domain/interfaces";
 import axios from "axios";
 
 interface GetProvincesApiService {
-  getProvinces: () => Promise<Result<ProvincesResponse, ProvincesError>>;
+  getProvinces: (
+    pageSize: string,
+    direction: string,
+    cursor: string | null
+  ) => Promise<Result<ProvincesResponse, ProvincesError>>;
 }
 
 export const getProvincesApiService = (
   baseUrl: string
 ): GetProvincesApiService => {
-  async function getProvinces(): Promise<
-    Result<ProvincesResponse, ProvincesError>
-  > {
+  async function getProvinces(
+    pageSize: string,
+    direction: string,
+    cursor: string | null
+  ): Promise<Result<ProvincesResponse, ProvincesError>> {
     try {
       const response = await axios.get<ProvincesResponse>(
-        `${baseUrl}/provinces`
+        `${baseUrl}/provinces`,
+        {
+          params: {
+            pageSize,
+            direction,
+            cursor,
+          },
+        }
       );
 
       return createSuccess(response.data);

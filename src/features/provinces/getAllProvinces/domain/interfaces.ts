@@ -6,7 +6,7 @@ export interface ProvincesResponse {
   previousCursor: string | null;
   hasNextPage: boolean;
   hasPreviousPage: boolean;
-  pageSize: number;
+  totalRecords: number;
 }
 
 export interface ProvincesError {
