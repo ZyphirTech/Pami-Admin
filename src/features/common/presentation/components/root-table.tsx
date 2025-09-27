@@ -8,14 +8,25 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  useReactTable,
+  getCoreRowModel,
+  ColumnDef,
+  SortingState,
+  PaginationState,
+  RowSelectionState,
+  flexRender,
+  Updater,
+} from "@tanstack/react-table";
 
 type Column<T = any> = {
   header: string;
@@ -75,11 +86,22 @@ export default function RootTable<T = any>({
   const pathname = usePathname();
 
   const [searchValue, setSearchValue] = useState("");
-  const [page, setPage] = useState<number>(pagination?.page ?? 0);
-  const [pageSize, setPageSize] = useState<number>(pagination?.pageSize ?? 10);
-  const [sortField, setSortField] = useState<string | null>(null);
-  const [sortDir, setSortDir] = useState<"asc" | "desc" | null>(null);
-  const [selected, setSelected] = useState<Record<string, boolean>>({});
+  const [sorting, setSorting] = useState<SortingState>([]);
+  const [{ pageIndex, pageSize }, setPagination] = useState<PaginationState>({
+    pageIndex: pagination?.page ?? 0,
+    pageSize: pagination?.pageSize ?? 10,
+  });
+  const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
+
+  useEffect(() => {
+    setPagination((prev) => ({
+      ...prev,
+      pageIndex: pagination?.page ?? 0,
+      pageSize: pagination?.pageSize ?? prev.pageSize,
+    }));
+  }, [pagination?.page, pagination?.pageSize]);
+
+  const rowCount = pagination?.totalRecords ?? data.length;
 
   // Helper para actualizar query string (similar a tu original)
   const updateQuery = useCallback(
@@ -118,7 +140,7 @@ export default function RootTable<T = any>({
         } else {
           // actualizar query string por defecto y resetear página
           updateQuery({ search: value || undefined, page: 0 });
-          setPage(0);
+          setPagination((up) => ({ ...up, pageIndex: 0 }));
         }
       }, 500),
     [handleSearch, updateQuery]
@@ -135,60 +157,131 @@ export default function RootTable<T = any>({
     debouncedSearch(v);
   };
 
-  // Paginación: cuando se cambie desde controles locales, preferimos llamar al callback externo o a updateQuery
-  const changePage = (nextPage: number) => {
-    setPage(nextPage);
-    if (pagination?.handlePaginationModelChange) {
-      pagination.handlePaginationModelChange({ page: nextPage, pageSize });
-    } else {
-      updateQuery({ page: nextPage, pageSize });
+  // Paginación: cuando se cambie, llamamos al callback externo o a updateQuery
+  const onPaginationChange = useCallback(
+    (updaterOrValue: Updater<PaginationState>) => {
+      setPagination((old) => {
+        let newState =
+          typeof updaterOrValue === "function"
+            ? updaterOrValue(old)
+            : updaterOrValue;
+        if (newState.pageSize !== old.pageSize) {
+          newState = { ...newState, pageIndex: 0 };
+        }
+        if (pagination?.handlePaginationModelChange) {
+          pagination.handlePaginationModelChange({
+            page: newState.pageIndex,
+            pageSize: newState.pageSize,
+          });
+        } else {
+          updateQuery({
+            page: newState.pageIndex,
+            pageSize: newState.pageSize,
+          });
+        }
+        return newState;
+      });
+    },
+    [pagination, updateQuery]
+  );
+
+  // Sorting: actualiza query con sort
+  const onSortingChange = useCallback(
+    (updaterOrValue: Updater<SortingState>) => {
+      setSorting((old) => {
+        const newSorting =
+          typeof updaterOrValue === "function"
+            ? updaterOrValue(old)
+            : updaterOrValue;
+        const appendSort: string[] = [];
+        if (newSorting.length > 0) {
+          const { id, desc } = newSorting[0];
+          appendSort.push(`${id},${desc ? "desc" : "asc"}`);
+        }
+        updateQuery({}, { appendSort });
+        return newSorting;
+      });
+    },
+    [updateQuery]
+  );
+
+  const tanstackColumns: ColumnDef<T>[] = useMemo(() => {
+    const cols: ColumnDef<T>[] = columns.map((col, idx) => ({
+      id: col.accessor ?? `custom${idx}`,
+      accessorKey: col.accessor,
+      header: col.header,
+      cell: (info) =>
+        col.cell
+          ? col.cell(info.row.original, info.row.index)
+          : col.accessor
+          ? info.getValue()
+          : null,
+      enableSorting: !!col.sortable && !!col.accessor,
+      meta: {
+        className: col.className,
+        width: col.width,
+      },
+    }));
+
+    if (!disableSelection) {
+      cols.unshift({
+        id: "select",
+        header: ({ table }) => (
+          <Checkbox
+            checked={
+              table.getIsAllPageRowsSelected() ||
+              (table.getIsSomePageRowsSelected() && "indeterminate") ||
+              false
+            }
+            onCheckedChange={(value) =>
+              table.toggleAllPageRowsSelected(!!value)
+            }
+            aria-label="select all rows"
+          />
+        ),
+        cell: ({ row }) => (
+          <Checkbox
+            checked={row.getIsSelected()}
+            onCheckedChange={(value) => row.toggleSelected(!!value)}
+            aria-label={`select row ${row.id}`}
+          />
+        ),
+        meta: {
+          className: "w-12",
+        },
+      });
     }
-  };
 
-  const changePageSize = (nextSize: number) => {
-    setPageSize(nextSize);
-    setPage(0);
-    if (pagination?.handlePaginationModelChange) {
-      pagination.handlePaginationModelChange({ page: 0, pageSize: nextSize });
-    } else {
-      updateQuery({ page: 0, pageSize: nextSize });
-    }
-  };
+    return cols;
+  }, [columns, disableSelection]);
 
-  // Sorting toggler (server-side): click header to cycle none -> asc -> desc -> none
-  const toggleSort = (col: Column<T>) => {
-    if (!col.sortable || !col.accessor) return;
-    if (sortField !== col.accessor) {
-      setSortField(col.accessor);
-      setSortDir("asc");
-      updateQuery({}, { appendSort: [`${col.accessor},asc`] });
-    } else {
-      if (sortDir === "asc") {
-        setSortDir("desc");
-        updateQuery({}, { appendSort: [`${col.accessor},desc`] });
-      } else if (sortDir === "desc") {
-        setSortField(null);
-        setSortDir(null);
-        updateQuery({}, { appendSort: [] });
-      } else {
-        setSortDir("asc");
-        updateQuery({}, { appendSort: [`${col.accessor},asc`] });
-      }
-    }
-  };
+  const table = useReactTable({
+    data,
+    columns: tanstackColumns,
+    manualPagination: true,
+    manualSorting: true,
+    pageCount: Math.max(1, Math.ceil(rowCount / pageSize)),
+    rowCount,
+    state: {
+      pagination: { pageIndex, pageSize },
+      sorting,
+      rowSelection,
+    },
+    enableMultiSort: false,
+    onPaginationChange,
+    onSortingChange,
+    onRowSelectionChange: setRowSelection,
+    getCoreRowModel: getCoreRowModel(),
+    getRowId: (originalRow, index) =>
+      getRowId
+        ? String(getRowId(originalRow))
+        : String((originalRow as any).id ?? index),
+  });
 
-  const total = pagination?.totalRecords ?? data.length;
-  const totalPages = Math.max(1, Math.ceil(formatNumber(total) / pageSize));
-  const start = page * pageSize + 1;
-  const end = Math.min(formatNumber(total), (page + 1) * pageSize);
-
-  // Selección de filas (si habilitado)
-  const toggleRow = (row: T) => {
-    const id = getRowId
-      ? String(getRowId(row))
-      : String((row as any).id ?? Math.random());
-    setSelected((prev) => ({ ...prev, [id]: !prev[id] }));
-  };
+  const total = rowCount;
+  const totalPages = table.getPageCount();
+  const start = pageIndex * pageSize + 1;
+  const end = Math.min(formatNumber(total), (pageIndex + 1) * pageSize);
 
   // Small Empty state
   const EmptyState = () => (
@@ -201,16 +294,20 @@ export default function RootTable<T = any>({
   );
 
   return (
-    <div className={withoutBorder ? "" : "shadow-md rounded-lg"}>
-      <Card className={withoutBorder ? "" : "overflow-hidden"}>
+    <div
+      className={withoutBorder ? "" : "shadow-md rounded-lg overflow-hidden"}
+    >
+      <Card className={withoutBorder ? "border-none shadow-none" : ""}>
         {!withoutSearch &&
           (headerComponent || (
-            <CardHeader className="flex flex-wrap items-center justify-between gap-2 py-3 px-4">
+            <CardHeader className="flex flex-wrap items-center justify-between gap-2 py-3 px-4 bg-muted/50">
               <div className="flex items-center gap-3">
                 {headerComponent ? (
                   headerComponent
                 ) : (
-                  <CardTitle className="text-sm">{name}</CardTitle>
+                  <CardTitle className="text-base font-semibold">
+                    {name}
+                  </CardTitle>
                 )}
               </div>
 
@@ -225,8 +322,10 @@ export default function RootTable<T = any>({
             </CardHeader>
           ))}
 
-        <CardContent className="p-0">
-          <ScrollArea className="w-full">
+        <CardContent className="px-2 py-0">
+          <ScrollArea className="w-full h-[500px]">
+            {" "}
+            {/* Añadido altura fija para scroll vertical con headers sticky */}
             {isLoading ? (
               <div className="flex items-center justify-center p-12">
                 <svg
@@ -253,105 +352,83 @@ export default function RootTable<T = any>({
             ) : data.length === 0 ? (
               <EmptyState />
             ) : (
-              <table className="min-w-full divide-y divide-border">
-                <thead className="bg-muted">
-                  <tr>
-                    {!disableSelection && (
-                      <th className="px-4 py-3 w-12 text-left">
-                        <Checkbox
-                          checked={
-                            Object.values(selected).length > 0 &&
-                            Object.values(selected).every(Boolean)
-                          }
-                          onCheckedChange={(v) => {
-                            // seleccionar/desseleccionar visibles
-                            const next: Record<string, boolean> = {};
-                            if (v) {
-                              data.forEach((r) => {
-                                const id = getRowId
-                                  ? String(getRowId(r))
-                                  : String((r as any).id ?? Math.random());
-                                next[id] = true;
-                              });
-                            }
-                            setSelected(next);
-                          }}
-                          aria-label="select all rows"
-                        />
-                      </th>
-                    )}
-                    {columns.map((col, idx) => (
-                      <th
-                        key={idx}
-                        className={`px-4 py-3 text-left text-sm font-medium uppercase tracking-wider ${
-                          col.className ?? ""
-                        }`}
-                        style={col.width ? { width: col.width } : undefined}
-                      >
-                        <div
-                          className={`flex items-center gap-2 select-none ${
-                            col.sortable ? "cursor-pointer" : ""
+              <Table>
+                <TableHeader className="sticky top-0 bg-background z-10 shadow-sm">
+                  {table.getHeaderGroups().map((headerGroup) => (
+                    <TableRow key={headerGroup.id}>
+                      {headerGroup.headers.map((header) => (
+                        <TableHead
+                          key={header.id}
+                          className={`text-left font-semibold text-foreground ${
+                            (header.column.columnDef.meta as any)?.className ??
+                            ""
                           }`}
-                          onClick={() => toggleSort(col)}
+                          style={{
+                            width: (header.column.columnDef.meta as any)?.width,
+                          }}
                         >
-                          <span>{col.header}</span>
-                          {col.sortable &&
-                            col.accessor &&
-                            sortField === col.accessor && (
-                              <span className="text-xs text-muted-foreground">
-                                {sortDir === "asc" ? "▲" : "▼"}
-                              </span>
-                            )}
-                        </div>
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
+                          {header.isPlaceholder ? null : (
+                            <div
+                              className={`flex items-center gap-2 select-none ${
+                                header.column.getCanSort()
+                                  ? "cursor-pointer hover:text-primary"
+                                  : ""
+                              }`}
+                              onClick={header.column.getToggleSortingHandler()}
+                            >
+                              {flexRender(
+                                header.column.columnDef.header,
+                                header.getContext()
+                              )}
+                              {header.column.getIsSorted() && (
+                                <span className="text-xs">
+                                  {header.column.getIsSorted() === "asc"
+                                    ? "▲"
+                                    : "▼"}
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </TableHead>
+                      ))}
+                    </TableRow>
+                  ))}
+                </TableHeader>
 
-                <tbody className="bg-background divide-y">
-                  {data.map((row, rIndex) => {
-                    const rowId = getRowId
-                      ? String(getRowId(row))
-                      : String((row as any).id ?? rIndex);
-                    return (
-                      <tr key={rowId} className="odd:bg-white even:bg-surface">
-                        {!disableSelection && (
-                          <td className="px-4 py-2">
-                            <Checkbox
-                              checked={!!selected[rowId]}
-                              onCheckedChange={() => toggleRow(row)}
-                              aria-label={`select row ${rowId}`}
-                            />
-                          </td>
-                        )}
-
-                        {columns.map((col, cIdx) => (
-                          <td key={cIdx} className="px-4 py-3 align-middle">
-                            {col.cell
-                              ? col.cell(row, rIndex)
-                              : col.accessor
-                              ? (row as any)[col.accessor]
-                              : null}
-                          </td>
-                        ))}
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                <TableBody>
+                  {table.getRowModel().rows.map((row) => (
+                    <TableRow
+                      key={row.id}
+                      data-state={row.getIsSelected() && "selected"}
+                      className={`hover:bg-muted/50 transition-colors ${
+                        row.index % 2 === 0 ? "bg-background" : "bg-muted/5"
+                      }`}
+                    >
+                      {row.getVisibleCells().map((cell) => (
+                        <TableCell key={cell.id}>
+                          {flexRender(
+                            cell.column.columnDef.cell,
+                            cell.getContext()
+                          )}
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             )}
           </ScrollArea>
         </CardContent>
 
         {!hideFooter && (
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 border-t">
-            <div className="flex items-center gap-2 text-sm">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 border-t bg-muted/50">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <div>
                 Mostrando{" "}
-                <span className="font-medium">
-                  {data.length === 0 ? 0 : `${start} - ${end}`}
+                <span className="font-medium text-foreground">
+                  {data.length === 0 ? 0 : `${start}`}
                 </span>{" "}
-                de <span className="font-medium">{total}</span>
+                de <span className="font-medium text-foreground">{total}</span>
               </div>
             </div>
 
@@ -360,43 +437,31 @@ export default function RootTable<T = any>({
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => changePage(Math.max(0, page - 1))}
-                  disabled={page <= 0}
+                  onClick={() => table.previousPage()}
+                  disabled={!table.getCanPreviousPage()}
                 >
                   <ChevronLeft className="w-4 h-4" />
                 </Button>
 
-                <div className="px-2 text-sm">
-                  Página <span className="font-medium">{page + 1}</span> de{" "}
-                  <span className="font-medium">{totalPages}</span>
+                <div className="px-2 text-sm text-muted-foreground">
+                  Página{" "}
+                  <span className="font-medium text-foreground">
+                    {pageIndex + 1}
+                  </span>{" "}
+                  de{" "}
+                  <span className="font-medium text-foreground">
+                    {totalPages}
+                  </span>
                 </div>
 
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => changePage(Math.min(totalPages - 1, page + 1))}
-                  disabled={page >= totalPages - 1}
+                  onClick={() => table.nextPage()}
+                  disabled={!table.getCanNextPage()}
                 >
                   <ChevronRight className="w-4 h-4" />
                 </Button>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <Select
-                  onValueChange={(v) => changePageSize(Number(v))}
-                  defaultValue={String(pageSize)}
-                >
-                  <SelectTrigger className="w-[110px] h-8">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {[5, 10, 20, 50, 100].map((s) => (
-                      <SelectItem value={String(s)} key={s}>
-                        {s} / página
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
               </div>
             </div>
           </div>

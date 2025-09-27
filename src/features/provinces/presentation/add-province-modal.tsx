@@ -15,9 +15,10 @@ import {
   addProvinceSchema,
 } from "../schema/add-province.schema";
 import { FormProvider, SubmitHandler, useForm } from "react-hook-form";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { RHFInput } from "../../common/presentation/components/input";
 import { useCreateProvince } from "../createProvince/mutations/mutations";
+import { cn } from "@/lib/utils";
 
 type DialogProps = {
   isOpen: boolean;
@@ -42,9 +43,7 @@ export const AddProvince = ({ isOpen, onClose }: DialogProps) => {
 
   const onSubmit: SubmitHandler<AddProvinceDTO> = async (data) => {
     console.log("Datos del formulario:", data);
-
     await createProvince(data);
-
     onClose();
     reset();
   };
@@ -52,32 +51,47 @@ export const AddProvince = ({ isOpen, onClose }: DialogProps) => {
   return (
     <FormProvider {...methods}>
       <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="sm:max-w-[460px] fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
+        <DialogContent className="sm:max-w-[460px] bg-white dark:bg-gray-900 rounded-lg shadow-xl p-0">
           <form
             onSubmit={handleSubmit(onSubmit)}
-            className="space-y-6 mx-auto w-full"
+            className="space-y-6 p-6"
           >
             <DialogHeader>
-              <DialogTitle>Crear Provincia</DialogTitle>
-              <DialogDescription>Crea una nueva provincia.</DialogDescription>
+              <DialogTitle className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                Crear Provincia
+              </DialogTitle>
+              <DialogDescription className="text-sm text-gray-600 dark:text-gray-400">
+                Completa los detalles para crear una nueva provincia.
+              </DialogDescription>
             </DialogHeader>
-            <Card className="p-6 space-y-4 w-full">
-              <div className="grid grid-cols-1 gap-4">
-                <RHFInput
-                  name="nombre"
-                  label="Nombre"
-                  placeholder="Introduce el nombre de la provincia"
-                  required
-                  type="text"
-                  width="100%"
-                />
-              </div>
+            <Card className="bg-gray-50 dark:bg-gray-800 border-none shadow-sm rounded-lg overflow-hidden">
+              <CardContent className="p-6 space-y-6">
+                <div className="grid grid-cols-1 gap-6">
+                  <RHFInput
+                    name="nombre"
+                    label="Nombre"
+                    placeholder="Introduce el nombre de la provincia"
+                    required
+                    type="text"
+                    width="100%"
+                  />
+                </div>
+              </CardContent>
             </Card>
-            <DialogFooter>
+            <DialogFooter className="flex justify-end gap-4">
               <DialogClose asChild>
-                <Button variant="outline">Cancelar</Button>
+                <Button
+                  variant="outline"
+                  className="border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                >
+                  Cancelar
+                </Button>
               </DialogClose>
-              <Button type="submit" disabled={isSubmitting}>
+              <Button
+                type="submit"
+                disabled={isSubmitting}
+                className="bg-blue-600 hover:bg-blue-700 text-white disabled:bg-blue-400 disabled:cursor-not-allowed transition-colors"
+              >
                 {isSubmitting && (
                   <svg
                     className="animate-spin h-4 w-4 mr-2 text-white"

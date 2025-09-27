@@ -9,10 +9,14 @@ import { useGetProvinces } from "@/src/features/provinces/getAllProvinces/intera
 import { useState } from "react";
 import { Plus } from "lucide-react";
 import { AddProvince } from "./add-province-modal";
+import { cn } from "@/lib/utils";
+import { useSidebar } from "../../common/presentation/components/sidebar";
 
 function ProvincesContainer() {
   const [currentPage, setCurrentPage] = useState(1);
   const [addProvinceModal, setAddProvinceModal] = useState(false);
+  const [pageSize, setPageSize] = useState(10);
+  let totalRecords = 11;
 
   const {
     data: provincesResponse,
@@ -28,10 +32,12 @@ function ProvincesContainer() {
     setAddProvinceModal(!addProvinceModal);
   };
 
+  const { collapsed } = useSidebar();
+
   //const pagination = usePagination(provinces.length, PAGE_SIZE, 5, currentPage);
 
   return (
-    <div className="p-6">
+    <div className={cn("p-6 transition-all duration-300", collapsed ? "ml-16" : "ml-64")}>
       <Button
         onClick={handleAddClick}
         className="fixed bottom-4 right-4 h-16 w-16 rounded-full bg-blue-500 hover:bg-blue-600 flex items-center justify-center"
@@ -71,13 +77,13 @@ function ProvincesContainer() {
           totalRecords: provinces.length,
           handlePaginationModelChange: ({ page, pageSize }: any) => {
             console.log("Cambió la página:", page, "con pageSize:", pageSize);
-            // aquí llamas a tu backend con los nuevos params
           },
         }}
         getRowId={(row: any) => row.id}
         isLoading={isLoading}
         disableSelection
       />
+
       <AddProvince
         isOpen={addProvinceModal}
         onClose={() => setAddProvinceModal(false)}
