@@ -22,7 +22,6 @@ import {
   getCoreRowModel,
   ColumnDef,
   SortingState,
-  PaginationState,
   RowSelectionState,
   flexRender,
   Updater,
@@ -38,11 +37,17 @@ type Column<T = any> = {
 };
 
 type Pagination = {
-  page?: number;
+  cursor?: string | null;
+  direction?: "0" | "1";
   pageSize?: number;
   totalRecords?: number;
-  handlePaginationModelChange?: (model: {
-    page: number;
+  hasNextPage?: boolean;
+  hasPreviousPage?: boolean;
+  nextCursor?: string | null;
+  previousCursor?: string | null;
+  handlePaginationChange?: (params: {
+    cursor: string | null;
+    direction: "0" | "1";
     pageSize: number;
   }) => void;
 };
@@ -54,7 +59,6 @@ type Props<T = any> = {
   pagination?: Pagination;
   hideFooter?: boolean;
   disableSelection?: boolean;
-  rowHeight?: number; // not used for HTML table but kept for API compatibility
   withoutSearch?: boolean;
   withoutBorder?: boolean;
   headerComponent?: React.ReactNode;
@@ -87,23 +91,25 @@ export default function RootTable<T = any>({
 
   const [searchValue, setSearchValue] = useState("");
   const [sorting, setSorting] = useState<SortingState>([]);
-  const [{ pageIndex, pageSize }, setPagination] = useState<PaginationState>({
-    pageIndex: pagination?.page ?? 0,
-    pageSize: pagination?.pageSize ?? 10,
-  });
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
+  const [cursor, setCursor] = useState<string | null>(
+    pagination?.cursor ?? null
+  );
+  const [direction, setDirection] = useState<"0" | "1">(
+    pagination?.direction ?? "0"
+  );
+  const [pageSize, setPageSize] = useState(pagination?.pageSize ?? 10);
 
+  // Sincronizar estado con props de paginación
   useEffect(() => {
-    setPagination((prev) => ({
-      ...prev,
-      pageIndex: pagination?.page ?? 0,
-      pageSize: pagination?.pageSize ?? prev.pageSize,
-    }));
-  }, [pagination?.page, pagination?.pageSize]);
+    setCursor(pagination?.cursor ?? null);
+    setDirection(pagination?.direction ?? "0");
+    setPageSize(pagination?.pageSize ?? 10);
+  }, [pagination?.cursor, pagination?.direction, pagination?.pageSize]);
 
-  const rowCount = pagination?.totalRecords ?? data.length;
+  const total = formatNumber(pagination?.totalRecords);
 
-  // Helper para actualizar query string (similar a tu original)
+  // Helper para actualizar query string
   const updateQuery = useCallback(
     (
       updates: Record<string, string | number | undefined | null>,
@@ -134,13 +140,12 @@ export default function RootTable<T = any>({
   const debouncedSearch = useMemo(
     () =>
       debounceFn((value: string) => {
-        // Llamada externa si el usuario proveyó handleSearch
         if (handleSearch) {
           handleSearch(value);
         } else {
-          // actualizar query string por defecto y resetear página
-          updateQuery({ search: value || undefined, page: 0 });
-          setPagination((up) => ({ ...up, pageIndex: 0 }));
+          updateQuery({ search: value || undefined, cursor: null });
+          setCursor(null);
+          setDirection("0");
         }
       }, 500),
     [handleSearch, updateQuery]
@@ -157,32 +162,20 @@ export default function RootTable<T = any>({
     debouncedSearch(v);
   };
 
-  // Paginación: cuando se cambie, llamamos al callback externo o a updateQuery
+  // Manejar cambio de paginación
   const onPaginationChange = useCallback(
-    (updaterOrValue: Updater<PaginationState>) => {
-      setPagination((old) => {
-        let newState =
-          typeof updaterOrValue === "function"
-            ? updaterOrValue(old)
-            : updaterOrValue;
-        if (newState.pageSize !== old.pageSize) {
-          newState = { ...newState, pageIndex: 0 };
-        }
-        if (pagination?.handlePaginationModelChange) {
-          pagination.handlePaginationModelChange({
-            page: newState.pageIndex,
-            pageSize: newState.pageSize,
-          });
-        } else {
-          updateQuery({
-            page: newState.pageIndex,
-            pageSize: newState.pageSize,
-          });
-        }
-        return newState;
-      });
+    (newCursor: string | null, newDirection: "0" | "1") => {
+      setCursor(newCursor);
+      setDirection(newDirection);
+      if (pagination?.handlePaginationChange) {
+        pagination.handlePaginationChange({
+          cursor: newCursor,
+          direction: newDirection,
+          pageSize,
+        });
+      } 
     },
-    [pagination, updateQuery]
+    [pagination, pageSize, cursor, direction]
   );
 
   // Sorting: actualiza query con sort
@@ -260,15 +253,11 @@ export default function RootTable<T = any>({
     columns: tanstackColumns,
     manualPagination: true,
     manualSorting: true,
-    pageCount: Math.max(1, Math.ceil(rowCount / pageSize)),
-    rowCount,
     state: {
-      pagination: { pageIndex, pageSize },
       sorting,
       rowSelection,
     },
     enableMultiSort: false,
-    onPaginationChange,
     onSortingChange,
     onRowSelectionChange: setRowSelection,
     getCoreRowModel: getCoreRowModel(),
@@ -278,12 +267,19 @@ export default function RootTable<T = any>({
         : String((originalRow as any).id ?? index),
   });
 
-  const total = rowCount;
-  const totalPages = table.getPageCount();
-  const start = pageIndex * pageSize + 1;
-  const end = Math.min(formatNumber(total), (pageIndex + 1) * pageSize);
+  // Funciones para manejar la paginación por cursor
+  const handleNextPage = () => {
+    if (pagination?.nextCursor != null) {
+      onPaginationChange(pagination?.nextCursor, "0");
+    }
+  };
 
-  // Small Empty state
+  const handlePreviousPage = () => {
+    if (pagination?.previousCursor != null) {
+      onPaginationChange(pagination?.previousCursor, "1");
+    }
+  };
+
   const EmptyState = () => (
     <div className="flex items-center justify-center p-12 text-center text-sm text-muted-foreground">
       <div>
@@ -324,8 +320,6 @@ export default function RootTable<T = any>({
 
         <CardContent className="px-2 py-0">
           <ScrollArea className="w-full h-[500px]">
-            {" "}
-            {/* Añadido altura fija para scroll vertical con headers sticky */}
             {isLoading ? (
               <div className="flex items-center justify-center p-12">
                 <svg
@@ -426,43 +420,29 @@ export default function RootTable<T = any>({
               <div>
                 Mostrando{" "}
                 <span className="font-medium text-foreground">
-                  {data.length === 0 ? 0 : `${start}`}
+                  {data.length}
                 </span>{" "}
                 de <span className="font-medium text-foreground">{total}</span>
               </div>
             </div>
 
             <div className="flex items-center gap-2">
-              <div className="hidden sm:flex items-center gap-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => table.previousPage()}
-                  disabled={!table.getCanPreviousPage()}
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                </Button>
-
-                <div className="px-2 text-sm text-muted-foreground">
-                  Página{" "}
-                  <span className="font-medium text-foreground">
-                    {pageIndex + 1}
-                  </span>{" "}
-                  de{" "}
-                  <span className="font-medium text-foreground">
-                    {totalPages}
-                  </span>
-                </div>
-
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => table.nextPage()}
-                  disabled={!table.getCanNextPage()}
-                >
-                  <ChevronRight className="w-4 h-4" />
-                </Button>
-              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handlePreviousPage}
+                disabled={!(pagination?.previousCursor != null)}
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleNextPage}
+                disabled={!(pagination?.nextCursor != null)}
+              >
+                <ChevronRight className="w-4 h-4" />
+              </Button>
             </div>
           </div>
         )}

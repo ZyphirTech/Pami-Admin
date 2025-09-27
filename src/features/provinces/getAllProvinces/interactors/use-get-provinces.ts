@@ -3,15 +3,21 @@ import { ProvincesResponse } from "../domain/interfaces";
 import { getProvincesApiService } from "../infrastructure/api-service";
 import { toast } from "sonner";
 
-export const useGetProvinces = () => {
+interface ProvinceQueryParams {
+  pageSize: number;
+  direction: "0" | "1";
+  cursor: string | null;
+}
+
+export const useGetProvinces = ({ pageSize, direction, cursor = null }: ProvinceQueryParams) => {
   return useQuery({
-    queryKey: ["provinces"],
+    queryKey: ["provinces", pageSize, direction, cursor],
     queryFn: async (): Promise<ProvincesResponse> => {
       const baseUrl = process.env.NEXT_PUBLIC_API_URL || "";
       const provincesService = getProvincesApiService(baseUrl);
 
       try {
-        const result = await provincesService.getProvinces();
+        const result = await provincesService.getProvinces(pageSize.toString(), direction, cursor);
 
         if (result.success) {
           return result.data;
